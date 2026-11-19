@@ -1,0 +1,1495 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#0f766e" />
+    <title>Price Notebook</title>
+
+    <!-- Google Fonts: Montserrat (for UI) & Playfair Display (for the logo) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,700;0,900;1,700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- =====================================================
+       CSS: how the page LOOKS
+       ===================================================== -->
+    <style>
+      /* Colours live in variables. Change them here and the whole app updates.
+       The second block switches to dark colours if the phone is in dark mode. */
+      :root {
+        --brand: #0f766e;
+        --brand-2: #14b8a6;
+        --bg: #f3f5f4;
+        --card: #ffffff;
+        --text: #0f172a;
+        --muted: #64748b;
+        --line: #e5e9e8;
+        --up: #dc2626; /* price went UP = bad for buyers = red */
+        --down: #16a34a; /* price went DOWN = good = green */
+        --flat: #94a3b8;
+        --shadow:
+          0 1px 2px rgba(15, 23, 42, 0.06), 0 6px 20px rgba(15, 23, 42, 0.06);
+
+        /* Background photo scrim (the "faded shadow" over the images).
+         Bigger alpha = more faded image, easier to read. */
+        --veil-tint: rgba(15, 118, 110, 0.22);
+        --veil-top: rgba(243, 245, 244, 0.7);
+        --veil-bottom: rgba(243, 245, 244, 0.88);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0b1211;
+          --card: #131c1b;
+          --text: #e8f0ee;
+          --muted: #8aa09b;
+          --line: #1f2c2a;
+          --shadow:
+            0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 20px rgba(0, 0, 0, 0.35);
+
+          --veil-tint: rgba(20, 184, 166, 0.16);
+          --veil-top: rgba(6, 12, 11, 0.7);
+          --veil-bottom: rgba(6, 12, 11, 0.9);
+        }
+      }
+      * {
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+      }
+      body {
+        margin: 0;
+        font-family:
+          "Montserrat",
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          Arial,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        padding-bottom: 110px;
+      }
+      .wrap {
+        max-width: 560px;
+        margin: 0 auto;
+        padding: 0 16px;
+      }
+
+      /* ---------- Background photo slider ---------- */
+      .bg-slider {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        overflow: hidden;
+        pointer-events: none;
+        background: var(--bg);
+      }
+      .bg-layer {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 0;
+        background-color: var(--bg);
+        /* These 3 lines make the image fit perfectly without stretching */
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        /* waits off-screen to the RIGHT */
+        transform: translateX(100%);
+        transition: transform 0.7s cubic-bezier(0.7, 0, 0.3, 1);
+      }
+      .bg-layer.is-current {
+        transform: translateX(0);
+      }
+      .bg-layer.is-leaving {
+        /* swipes off to the LEFT */
+        transform: translateX(-100%);
+      }
+      .bg-veil {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        background:
+          radial-gradient(
+            120% 65% at 50% 0%,
+            var(--veil-tint),
+            transparent 65%
+          ),
+          linear-gradient(180deg, var(--veil-top), var(--veil-bottom));
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .bg-layer {
+          transition-duration: 0.01s;
+        }
+      }
+
+      /* Keep all page content ABOVE the photo slider */
+      header,
+      main {
+        position: relative;
+        z-index: 1;
+      }
+
+      /* ---------- Header / Logo Design ---------- */
+      header {
+        background: linear-gradient(135deg, var(--brand), var(--brand-2));
+        color: #fff;
+        padding: 32px 0 70px;
+        border-radius: 0 0 28px 28px;
+      }
+
+      header h1 {
+        margin: 0;
+        font-family: "Playfair Display", serif;
+        font-size: 2rem;
+        font-weight: 1000; /* Extra bold for that thick logo look */
+        /* Playfair Display looks best without wide letter-spacing */
+        letter-spacing: 0.5px;
+        display: flex;
+        align-items: center;
+        gap: 12px; /* Space between icon and text */
+        line-height: 1.1;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Subtle depth */
+      }
+
+      header h1 span {
+        /* This ensures the text baseline aligns well with the emoji */
+        margin-top: 2px;
+      }
+
+      header p {
+        margin: 12px 0 0;
+        opacity: 0.9;
+        font-size: 0.85rem;
+        letter-spacing: 1px;
+        font-weight: 500;
+        text-transform: lowercase;
+      }
+
+      /* ---------- Stat tiles (overlap the header) ---------- */
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-top: -48px;
+      }
+      .tile {
+        background: color-mix(in srgb, var(--card) 88%, transparent);
+        backdrop-filter: blur(10px) saturate(1.05);
+        -webkit-backdrop-filter: blur(10px) saturate(1.05);
+        border-radius: 16px;
+        padding: 12px;
+        box-shadow: var(--shadow);
+        min-width: 0;
+      }
+      .tile .label {
+        font-size: 0.65rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-weight: 600;
+      }
+      .tile .num {
+        font-size: 1.3rem;
+        font-weight: 700;
+        margin-top: 4px;
+      }
+      .tile .sub {
+        font-size: 0.7rem;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .tile.rise .num {
+        color: var(--up);
+      }
+      .tile.drop .num {
+        color: var(--down);
+      }
+
+      /* ---------- Search + sort ---------- */
+      .controls {
+        display: flex;
+        gap: 10px;
+        margin: 18px 0 6px;
+      }
+      .search {
+        position: relative;
+        flex: 1;
+      }
+      .search input,
+      .controls select {
+        width: 100%;
+        height: 46px;
+        border: 1px solid var(--line);
+        background: var(--card);
+        color: var(--text);
+        border-radius: 14px;
+        padding: 0 14px;
+        font-size: 0.9rem;
+        font-family: inherit;
+      }
+      .search input {
+        padding-left: 40px;
+      }
+      .search span {
+        position: absolute;
+        left: 14px;
+        top: 12px;
+        opacity: 0.55;
+        font-size: 1.1rem;
+      }
+      .controls select {
+        width: 120px;
+        flex: none;
+      }
+
+      /* ---------- Item cards ---------- */
+      .card {
+        background: color-mix(in srgb, var(--card) 88%, transparent);
+        backdrop-filter: blur(10px) saturate(1.05);
+        -webkit-backdrop-filter: blur(10px) saturate(1.05);
+        border-radius: 20px;
+        padding: 16px;
+        margin-top: 12px;
+        box-shadow: var(--shadow);
+        animation: rise 0.45s both;
+      }
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(14px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      .card.flash {
+        animation: flash 1.2s;
+      }
+      @keyframes flash {
+        0% {
+          box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.7);
+        }
+        100% {
+          box-shadow: 0 0 0 16px rgba(20, 184, 166, 0);
+        }
+      }
+      .top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .name {
+        font-weight: 700;
+        font-size: 1.08rem;
+        letter-spacing: 0.5px;
+      }
+      .unit {
+        display: inline-block;
+        font-size: 0.72rem;
+        color: var(--muted);
+        background: var(--bg);
+        border-radius: 99px;
+        padding: 2px 9px;
+        margin-top: 4px;
+        font-weight: 500;
+      }
+      .price {
+        font-size: 1.55rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        text-align: right;
+      }
+
+      .mid {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 12px;
+        gap: 10px;
+      }
+      .badge {
+        font-size: 0.75rem;
+        font-weight: 600;
+        border-radius: 99px;
+        padding: 5px 11px;
+        white-space: nowrap;
+        letter-spacing: 0.5px;
+      }
+      .up {
+        color: var(--up);
+        background: color-mix(in srgb, var(--up) 12%, transparent);
+      }
+      .down {
+        color: var(--down);
+        background: color-mix(in srgb, var(--down) 12%, transparent);
+      }
+      .flat {
+        color: var(--flat);
+        background: color-mix(in srgb, var(--flat) 15%, transparent);
+      }
+
+      .spark {
+        width: 120px;
+        height: 40px;
+        flex: none;
+      }
+      .spark.up,
+      .spark.down,
+      .spark.flat {
+        background: none;
+      }
+      .spark-line {
+        stroke-dasharray: 1;
+        stroke-dashoffset: 1;
+        animation: draw 1s 0.15s forwards;
+      }
+      @keyframes draw {
+        to {
+          stroke-dashoffset: 0;
+        }
+      }
+
+      .meta {
+        font-size: 0.8rem;
+        color: var(--muted);
+        margin-top: 10px;
+        font-weight: 500;
+      }
+      .actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .actions button {
+        flex: 1;
+        height: 40px;
+        border: 1px solid var(--line);
+        background: transparent;
+        color: var(--text);
+        border-radius: 12px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition:
+          transform 0.12s,
+          background 0.2s;
+        font-family: inherit;
+      }
+      .actions button:active {
+        transform: scale(0.96);
+      }
+      .actions .primary {
+        background: var(--brand);
+        color: #fff;
+        border-color: var(--brand);
+      }
+
+      /* ---------- History drawer inside each card ---------- */
+      .history {
+        display: none;
+        margin-top: 12px;
+        border-top: 1px dashed var(--line);
+        padding-top: 6px;
+      }
+      .history.open {
+        display: block;
+        animation: rise 0.3s;
+      }
+      .h-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 9px 0;
+        border-bottom: 1px solid var(--line);
+        font-size: 0.9rem;
+      }
+      .h-row:last-child {
+        border-bottom: none;
+      }
+      .h-row small {
+        display: block;
+        color: var(--muted);
+      }
+      .h-right {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 700;
+      }
+      .x {
+        border: none;
+        background: none;
+        color: var(--muted);
+        font-size: 1.2rem;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 8px;
+      }
+      .x:hover {
+        color: var(--up);
+      }
+
+      /* ---------- Empty state ---------- */
+      .empty {
+        text-align: center;
+        padding: 44px 20px;
+        color: var(--muted);
+      }
+      .empty .big {
+        font-size: 3rem;
+      }
+      .empty h2 {
+        color: var(--text);
+        margin: 8px 0 4px;
+      }
+      .link-btn {
+        margin-top: 14px;
+        border: 1px solid var(--line);
+        background: var(--card);
+        color: var(--brand);
+        font-weight: 600;
+        padding: 11px 16px;
+        border-radius: 12px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        font-family: inherit;
+      }
+
+      /* ---------- Footer & Buttons ---------- */
+      footer {
+        text-align: center;
+        color: var(--muted);
+        font-size: 0.8rem;
+        margin-top: 32px;
+        margin-bottom: 20px;
+        font-weight: 500;
+        letter-spacing: 0.5px;
+      }
+      .footer-actions {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        margin-top: 12px;
+      }
+      .footer-btn {
+        background: color-mix(in srgb, var(--card) 88%, transparent);
+        backdrop-filter: blur(10px) saturate(1.05);
+        -webkit-backdrop-filter: blur(10px) saturate(1.05);
+        border: 1px solid var(--line);
+        color: var(--brand);
+        font-weight: 600;
+        cursor: pointer;
+        font-size: 0.85rem;
+        padding: 10px 18px;
+        border-radius: 12px;
+        transition: all 0.2s;
+        box-shadow: var(--shadow);
+        font-family: inherit;
+      }
+      .footer-btn:hover {
+        background: var(--card);
+      }
+      .footer-btn:active {
+        transform: scale(0.96);
+      }
+      .footer-btn.danger {
+        color: var(--up);
+      }
+
+      /* ---------- Floating add button ---------- */
+      .fab {
+        position: fixed;
+        right: 20px;
+        bottom: calc(22px + env(safe-area-inset-bottom));
+        z-index: 2;
+        height: 58px;
+        padding: 0 22px;
+        border: none;
+        border-radius: 99px;
+        background: linear-gradient(135deg, var(--brand), var(--brand-2));
+        color: #fff;
+        font-size: 1rem;
+        font-weight: 700;
+        box-shadow: 0 10px 26px rgba(15, 118, 110, 0.45);
+        cursor: pointer;
+        transition: transform 0.15s;
+        font-family: inherit;
+        letter-spacing: 0.5px;
+      }
+      .fab:active {
+        transform: scale(0.94);
+      }
+
+      /* ---------- Bottom sheet (the add form) ---------- */
+      .backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(2, 12, 10, 0.5);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.25s;
+        z-index: 20;
+      }
+      .backdrop.show {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .sheet {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 21;
+        background: var(--card);
+        border-radius: 26px 26px 0 0;
+        padding: 14px 18px calc(22px + env(safe-area-inset-bottom));
+        transform: translateY(105%);
+        transition: transform 0.32s cubic-bezier(0.2, 0.9, 0.3, 1);
+        max-width: 560px;
+        margin: 0 auto;
+        max-height: 92vh;
+        overflow-y: auto;
+      }
+      .sheet.show {
+        transform: none;
+      }
+      .grab {
+        width: 44px;
+        height: 5px;
+        background: var(--line);
+        border-radius: 9px;
+        margin: 0 auto 14px;
+      }
+      .sheet h2 {
+        margin: 0 0 12px;
+        font-size: 1.2rem;
+        letter-spacing: 0.5px;
+      }
+      .chips {
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        padding-bottom: 10px;
+        scrollbar-width: none;
+      }
+      .chip {
+        flex: none;
+        border: 1px solid var(--line);
+        background: var(--bg);
+        color: var(--text);
+        padding: 8px 13px;
+        border-radius: 99px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .chip:active {
+        background: var(--brand);
+        color: #fff;
+      }
+      label {
+        display: block;
+        font-size: 0.75rem;
+        color: var(--muted);
+        margin: 8px 0 5px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+      }
+      .field {
+        width: 100%;
+        height: 50px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 0 14px;
+        font-size: 0.95rem;
+        background: var(--bg);
+        color: var(--text);
+        font-family: inherit;
+      }
+      .field:focus,
+      .controls input:focus,
+      .controls select:focus {
+        outline: 2px solid var(--brand-2);
+        border-color: transparent;
+      }
+      .field.bad {
+        border-color: var(--up);
+        animation: shake 0.35s;
+      }
+      @keyframes shake {
+        25% {
+          transform: translateX(-6px);
+        }
+        75% {
+          transform: translateX(6px);
+        }
+      }
+      .two {
+        display: grid;
+        grid-template-columns: 1.2fr 1fr;
+        gap: 10px;
+      }
+      .save {
+        width: 100%;
+        height: 54px;
+        margin-top: 16px;
+        border: none;
+        border-radius: 16px;
+        background: linear-gradient(135deg, var(--brand), var(--brand-2));
+        color: #fff;
+        font-size: 1rem;
+        font-weight: 700;
+        cursor: pointer;
+        font-family: inherit;
+        letter-spacing: 0.5px;
+      }
+      .hint {
+        font-size: 0.75rem;
+        color: var(--muted);
+        margin-top: 8px;
+        min-height: 1.1em;
+        font-weight: 500;
+      }
+
+      /* ---------- Toast message ---------- */
+      .toast {
+        position: fixed;
+        left: 50%;
+        bottom: calc(100px + env(safe-area-inset-bottom));
+        z-index: 30;
+        transform: translate(-50%, 30px);
+        opacity: 0;
+        pointer-events: none;
+        background: #0f172a;
+        color: #fff;
+        padding: 12px 16px;
+        border-radius: 14px;
+        display: flex;
+        gap: 14px;
+        align-items: center;
+        font-size: 0.85rem;
+        transition: all 0.3s;
+        max-width: 92vw;
+        font-weight: 500;
+      }
+      .toast.show {
+        transform: translate(-50%, 0);
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .toast button {
+        background: none;
+        border: none;
+        color: #5eead4;
+        font-weight: 700;
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-family: inherit;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- =====================================================
+       HTML: the STRUCTURE of the page
+       ===================================================== -->
+
+    <!-- The photo slider sits behind everything. Layers are injected by JS. -->
+    <div class="bg-slider" id="bgSlider" aria-hidden="true">
+      <div class="bg-veil"></div>
+    </div>
+
+    <header>
+      <div class="wrap">
+        <!-- Wrapped text in a span for exact logo alignment -->
+        <h1>📒 <span>Price Notebook</span></h1>
+        <p>Write down what you pay. See how prices move.</p>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <!-- Summary tiles -->
+      <section class="stats">
+        <div class="tile">
+          <div class="label">Tracking</div>
+          <div class="num" id="statTracked">0</div>
+          <div class="sub">items</div>
+        </div>
+        <div class="tile rise">
+          <div class="label">Biggest rise</div>
+          <div class="num" id="statRise">-</div>
+          <div class="sub" id="statRiseSub">&nbsp;</div>
+        </div>
+        <div class="tile drop">
+          <div class="label">Biggest drop</div>
+          <div class="num" id="statDrop">-</div>
+          <div class="sub" id="statDropSub">&nbsp;</div>
+        </div>
+      </section>
+
+      <!-- Search and sort -->
+      <section class="controls">
+        <div class="search">
+          <span>🔎</span
+          ><input
+            id="search"
+            type="search"
+            placeholder="Search items or markets"
+          />
+        </div>
+        <select id="sort" aria-label="Sort items">
+          <option value="recent">Latest</option>
+          <option value="rise">Rising</option>
+          <option value="drop">Falling</option>
+          <option value="az">A to Z</option>
+        </select>
+      </section>
+
+      <!-- The cards are drawn here by JavaScript -->
+      <section id="cards"></section>
+
+      <!-- Updated Footer -->
+      <footer>
+        <div>Saved on this phone only.</div>
+        <div class="footer-actions">
+          <button id="exportBtn" class="footer-btn">Download CSV</button>
+          <button id="clearBtn" class="footer-btn danger">
+            Clear everything
+          </button>
+        </div>
+      </footer>
+    </main>
+
+    <!-- Floating "add" button -->
+    <button class="fab" id="fab">+ Add price</button>
+
+    <!-- The add form (a bottom sheet that slides up) -->
+    <div class="backdrop" id="backdrop"></div>
+    <form class="sheet" id="sheet" autocomplete="off">
+      <div class="grab"></div>
+      <h2 id="sheetTitle">Add a price</h2>
+
+      <div class="chips" id="chips"></div>
+
+      <label for="fItem">What did you buy?</label>
+      <input
+        class="field"
+        id="fItem"
+        list="itemList"
+        placeholder="e.g. Garri"
+        maxlength="40"
+      />
+      <datalist id="itemList"></datalist>
+
+      <div class="two">
+        <div>
+          <label for="fPrice">Price paid (₦)</label>
+          <input
+            class="field"
+            id="fPrice"
+            type="number"
+            inputmode="decimal"
+            min="0"
+            step="any"
+            placeholder="0"
+          />
+        </div>
+        <div>
+          <label for="fUnit">Per what?</label>
+          <input
+            class="field"
+            id="fUnit"
+            list="unitList"
+            placeholder="per congo"
+            maxlength="24"
+          />
+          <datalist id="unitList">
+            <option value="per kg"></option>
+            <option value="per congo"></option>
+            <option value="per bag"></option>
+            <option value="per basket"></option>
+            <option value="per piece"></option>
+            <option value="per litre"></option>
+            <option value="per bunch"></option>
+            <option value="per tuber"></option>
+          </datalist>
+        </div>
+      </div>
+
+      <div class="two">
+        <div>
+          <label for="fPlace">Where? (optional)</label>
+          <input
+            class="field"
+            id="fPlace"
+            placeholder="e.g. Mile 3 market"
+            maxlength="40"
+          />
+        </div>
+        <div>
+          <label for="fDate">Date</label>
+          <input class="field" id="fDate" type="date" />
+        </div>
+      </div>
+
+      <div class="hint" id="hint"></div>
+      <button class="save" type="submit">Save price</button>
+    </form>
+
+    <div class="toast" id="toast"></div>
+
+    <!-- =====================================================
+       JavaScript: the BRAIN of the app
+       ===================================================== -->
+    <script>
+      // ---------- 1. Shortcuts to page elements ----------
+      const $ = (id) => document.getElementById(id);
+      const cardsEl = $("cards"),
+        searchEl = $("search"),
+        sortEl = $("sort");
+      const sheet = $("sheet"),
+        backdrop = $("backdrop"),
+        toastEl = $("toast");
+      const fItem = $("fItem"),
+        fPrice = $("fPrice"),
+        fUnit = $("fUnit"),
+        fPlace = $("fPlace"),
+        fDate = $("fDate");
+
+      // ---------- 2. Our data ----------
+      let entries = [];
+      let openHistory = new Set(); // which cards have their history drawer open
+      let flashKey = null; // which card to highlight after saving
+      let lastDeleted = null; // remembered so "Undo" works
+
+      // ---------- 3. Saving and loading (localStorage) ----------
+      function load() {
+        try {
+          entries = JSON.parse(localStorage.getItem("pn_entries")) || [];
+        } catch (e) {
+          entries = [];
+        }
+      }
+      function save() {
+        try {
+          localStorage.setItem("pn_entries", JSON.stringify(entries));
+        } catch (e) {
+          toast("Could not save on this device");
+        }
+      }
+
+      // ---------- 4. Small helper functions ----------
+      function toISO(d) {
+        return (
+          d.getFullYear() +
+          "-" +
+          String(d.getMonth() + 1).padStart(2, "0") +
+          "-" +
+          String(d.getDate()).padStart(2, "0")
+        );
+      }
+      function today() {
+        return toISO(new Date());
+      }
+      function naira(n) {
+        return (
+          "₦" + Number(n).toLocaleString("en-NG", { maximumFractionDigits: 2 })
+        );
+      }
+      function esc(s) {
+        return String(s).replace(
+          /[&<>"']/g,
+          (c) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            })[c],
+        );
+      }
+      function prettyDate(iso) {
+        const [y, m, d] = iso.split("-").map(Number);
+        const date = new Date(y, m - 1, d);
+        const opts = { day: "numeric", month: "short" };
+        if (y !== new Date().getFullYear()) opts.year = "numeric";
+        return date.toLocaleDateString("en-GB", opts);
+      }
+      function keyOf(item, unit) {
+        return item.trim().toLowerCase() + "|" + unit.trim().toLowerCase();
+      }
+      function cap(s) {
+        s = s.trim();
+        return s.charAt(0).toUpperCase() + s.slice(1);
+      }
+      function uid() {
+        return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+      }
+
+      // Animated number: counts up from the old value to the new one
+      function countUp(el, to, opts) {
+        opts = opts || {};
+        const from = el._v || 0,
+          start = performance.now(),
+          dur = 600;
+        el._v = to;
+        function step(now) {
+          const p = Math.min(1, (now - start) / dur);
+          const v = from + (to - from) * (1 - Math.pow(1 - p, 3)); // eased
+          el.textContent =
+            (opts.prefix || "") +
+            v.toFixed(opts.decimals || 0) +
+            (opts.suffix || "");
+          if (p < 1) requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+      }
+
+      // ---------- 5. Turn the flat list into groups, one group per item ----------
+      function buildGroups() {
+        const map = {};
+        entries.forEach((e) => {
+          const k = keyOf(e.item, e.unit);
+          if (!map[k])
+            map[k] = { key: k, item: e.item, unit: e.unit, list: [] };
+          map[k].list.push(e);
+        });
+        return Object.values(map).map((g) => {
+          g.list.sort((a, b) => a.date.localeCompare(b.date) || a.ts - b.ts);
+          g.latest = g.list[g.list.length - 1];
+          g.prev = g.list.length > 1 ? g.list[g.list.length - 2] : null;
+          g.pct = g.prev
+            ? ((g.latest.price - g.prev.price) / g.prev.price) * 100
+            : null;
+          return g;
+        });
+      }
+
+      // ---------- 6. A tiny line chart (SVG) of the price history ----------
+      function sparkline(list, cls) {
+        const W = 120,
+          H = 40,
+          P = 5;
+        const prices = list.map((e) => e.price);
+        const min = Math.min(...prices),
+          max = Math.max(...prices);
+        const pts = list.map((e, i) => [
+          list.length === 1 ? W / 2 : P + (i * (W - 2 * P)) / (list.length - 1),
+          max === min
+            ? H / 2
+            : H - P - ((e.price - min) / (max - min)) * (H - 2 * P),
+        ]);
+        const last = pts[pts.length - 1];
+        const line =
+          list.length > 1
+            ? `<polyline class="spark-line" pathLength="1" points="${pts.map((p) => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ")}" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`
+            : "";
+        return `<svg class="spark ${cls}" viewBox="0 0 ${W} ${H}" aria-hidden="true">${line}<circle cx="${last[0]}" cy="${last[1]}" r="3.6" fill="currentColor"/></svg>`;
+      }
+
+      // ---------- 7. Draw everything ----------
+      function render() {
+        const groups = buildGroups();
+
+        // --- stat tiles ---
+        countUp($("statTracked"), groups.length);
+        const moved = groups.filter((g) => g.pct !== null);
+        const rise = moved
+          .filter((g) => g.pct > 0)
+          .sort((a, b) => b.pct - a.pct)[0];
+        const drop = moved
+          .filter((g) => g.pct < 0)
+          .sort((a, b) => a.pct - b.pct)[0];
+        if (rise) {
+          countUp($("statRise"), rise.pct, {
+            prefix: "+",
+            suffix: "%",
+            decimals: 1,
+          });
+          $("statRiseSub").textContent = rise.item;
+        } else {
+          $("statRise").textContent = "-";
+          $("statRise")._v = 0;
+          $("statRiseSub").innerHTML = "&nbsp;";
+        }
+        if (drop) {
+          countUp($("statDrop"), drop.pct, { suffix: "%", decimals: 1 });
+          $("statDropSub").textContent = drop.item;
+        } else {
+          $("statDrop").textContent = "-";
+          $("statDrop")._v = 0;
+          $("statDropSub").innerHTML = "&nbsp;";
+        }
+
+        // --- search ---
+        const q = searchEl.value.trim().toLowerCase();
+        let shown = groups.filter(
+          (g) =>
+            !q ||
+            g.item.toLowerCase().includes(q) ||
+            g.unit.toLowerCase().includes(q) ||
+            g.list.some((e) => e.place.toLowerCase().includes(q)),
+        );
+
+        // --- sort ---
+        const mode = sortEl.value;
+        if (mode === "az") shown.sort((a, b) => a.item.localeCompare(b.item));
+        else if (mode === "rise")
+          shown.sort((a, b) => (b.pct ?? -999) - (a.pct ?? -999));
+        else if (mode === "drop")
+          shown.sort((a, b) => (a.pct ?? 999) - (b.pct ?? 999));
+        else
+          shown.sort(
+            (a, b) =>
+              b.latest.date.localeCompare(a.latest.date) ||
+              b.latest.ts - a.latest.ts,
+          );
+
+        // --- empty states ---
+        if (groups.length === 0) {
+          cardsEl.innerHTML = `
+          <div class="empty">
+            <div class="big">🧺</div>
+            <h2>Your notebook is empty</h2>
+            <div>Tap <b>+ Add price</b> and write down the first thing you bought.</div>
+            <button class="link-btn" id="sampleBtn">Or try it with sample data</button>
+          </div>`;
+          $("sampleBtn").onclick = loadSample;
+          return;
+        }
+        if (shown.length === 0) {
+          cardsEl.innerHTML = `<div class="empty"><div class="big">🔍</div><h2>Nothing found</h2><div>Try a different word.</div></div>`;
+          return;
+        }
+
+        // --- cards ---
+        cardsEl.innerHTML = shown
+          .map((g, i) => {
+            let cls = "flat",
+              badge = "First price saved";
+            if (g.pct !== null) {
+              if (g.pct > 0.05) {
+                cls = "up";
+                badge = "▲ " + g.pct.toFixed(1) + "% since last time";
+              } else if (g.pct < -0.05) {
+                cls = "down";
+                badge = "▼ " + Math.abs(g.pct).toFixed(1) + "% since last time";
+              } else {
+                cls = "flat";
+                badge = "No change";
+              }
+            }
+            const first = g.list[0],
+              total =
+                g.list.length > 1
+                  ? ((g.latest.price - first.price) / first.price) * 100
+                  : null;
+            const since =
+              total === null
+                ? ""
+                : ` · ${total >= 0 ? "+" : ""}${total.toFixed(0)}% since ${prettyDate(first.date)}`;
+            const place = g.latest.place ? ` at ${esc(g.latest.place)}` : "";
+            const isOpen = openHistory.has(g.key);
+            const history = g.list
+              .slice()
+              .reverse()
+              .map(
+                (e) => `
+          <div class="h-row">
+            <div>${prettyDate(e.date)}<small>${e.place ? esc(e.place) : "No place added"}</small></div>
+            <div class="h-right">${naira(e.price)}<button class="x" data-del="${e.id}" aria-label="Delete">✕</button></div>
+          </div>`,
+              )
+              .join("");
+
+            return `
+          <article class="card ${flashKey === g.key ? "flash" : ""}" style="animation-delay:${i * 45}ms">
+            <div class="top">
+              <div>
+                <div class="name">${esc(g.item)}</div>
+                ${g.unit ? `<span class="unit">${esc(g.unit)}</span>` : ""}
+              </div>
+              <div class="price">${naira(g.latest.price)}</div>
+            </div>
+            <div class="mid">
+              <span class="badge ${cls}">${badge}</span>
+              ${sparkline(g.list, cls)}
+            </div>
+            <div class="meta">Last paid ${prettyDate(g.latest.date)}${place}${since}</div>
+            <div class="actions">
+              <button class="primary" data-add="${esc(g.key)}">+ New price</button>
+              <button data-toggle="${esc(g.key)}">${isOpen ? "Hide" : "History"} (${g.list.length})</button>
+            </div>
+            <div class="history ${isOpen ? "open" : ""}">${history}</div>
+          </article>`;
+          })
+          .join("");
+        flashKey = null;
+      }
+
+      // ---------- 8. The add form (bottom sheet) ----------
+      const QUICK = [
+        "Garri",
+        "Rice",
+        "Beans",
+        "Tomatoes",
+        "Yam",
+        "Palm oil",
+        "Bread",
+        "Eggs",
+        "Fuel",
+      ];
+
+      function refreshSuggestions() {
+        const names = [...new Set(entries.map((e) => e.item))];
+        $("itemList").innerHTML = names
+          .map((n) => `<option value="${esc(n)}">`)
+          .join("");
+        $("chips").innerHTML = QUICK.map(
+          (n) =>
+            `<button type="button" class="chip" data-chip="${n}">${n}</button>`,
+        ).join("");
+      }
+
+      function openSheet(prefill) {
+        prefill = prefill || {};
+        refreshSuggestions();
+        fItem.value = prefill.item || "";
+        fUnit.value = prefill.unit || "";
+        fPrice.value = "";
+        fPlace.value = prefill.place || "";
+        fDate.value = today();
+        $("sheetTitle").textContent = prefill.item
+          ? "New price for " + prefill.item
+          : "Add a price";
+        $("hint").textContent = "";
+        [fItem, fPrice].forEach((f) => f.classList.remove("bad"));
+        sheet.classList.add("show");
+        backdrop.classList.add("show");
+        setTimeout(() => (prefill.item ? fPrice : fItem).focus(), 320);
+      }
+      function closeSheet() {
+        sheet.classList.remove("show");
+        backdrop.classList.remove("show");
+        document.activeElement && document.activeElement.blur();
+      }
+
+      fItem.addEventListener("input", function () {
+        const name = fItem.value.trim().toLowerCase();
+        const mine = entries
+          .filter((e) => e.item.toLowerCase() === name)
+          .sort((a, b) => b.ts - a.ts);
+        if (mine.length) {
+          if (!fUnit.value) fUnit.value = mine[0].unit;
+          $("hint").textContent =
+            "Last time you paid " +
+            naira(mine[0].price) +
+            (mine[0].unit ? " " + mine[0].unit : "") +
+            ".";
+        } else {
+          $("hint").textContent = "";
+        }
+      });
+
+      sheet.addEventListener("submit", function (event) {
+        event.preventDefault();
+        const item = fItem.value.trim();
+        const price = Number(fPrice.value);
+        let ok = true;
+        if (!item) {
+          fItem.classList.add("bad");
+          ok = false;
+        }
+        if (!(price > 0)) {
+          fPrice.classList.add("bad");
+          ok = false;
+        }
+        if (!ok) {
+          setTimeout(
+            () => [fItem, fPrice].forEach((f) => f.classList.remove("bad")),
+            600,
+          );
+          return;
+        }
+
+        const unit = fUnit.value.trim();
+        const existing = entries.find(
+          (e) => keyOf(e.item, e.unit) === keyOf(item, unit),
+        );
+        const entry = {
+          id: uid(),
+          item: existing ? existing.item : cap(item),
+          unit: existing ? existing.unit : unit,
+          price: price,
+          place: fPlace.value.trim(),
+          date: fDate.value || today(),
+          ts: Date.now(),
+        };
+        entries.push(entry);
+        flashKey = keyOf(entry.item, entry.unit);
+        save();
+        closeSheet();
+        render();
+
+        const g = buildGroups().find((x) => x.key === flashKey);
+        if (g && g.pct !== null && Math.abs(g.pct) > 0.05) {
+          toast(
+            entry.item +
+              (g.pct > 0 ? " is up " : " is down ") +
+              Math.abs(g.pct).toFixed(1) +
+              "%",
+          );
+        } else {
+          toast("Saved ✓");
+        }
+        if (navigator.vibrate) navigator.vibrate(30);
+      });
+
+      // ---------- 9. Clicks inside the cards ----------
+      cardsEl.addEventListener("click", function (event) {
+        const t = event.target.closest("button");
+        if (!t) return;
+
+        if (t.dataset.add) {
+          const g = buildGroups().find((x) => x.key === t.dataset.add);
+          if (g)
+            openSheet({ item: g.item, unit: g.unit, place: g.latest.place });
+        }
+        if (t.dataset.toggle) {
+          const k = t.dataset.toggle;
+          openHistory.has(k) ? openHistory.delete(k) : openHistory.add(k);
+          render();
+        }
+        if (t.dataset.del) {
+          const idx = entries.findIndex((e) => e.id === t.dataset.del);
+          if (idx > -1) {
+            lastDeleted = entries.splice(idx, 1)[0];
+            save();
+            render();
+            toast("Price deleted", "Undo", function () {
+              if (lastDeleted) {
+                entries.push(lastDeleted);
+                lastDeleted = null;
+                save();
+                render();
+              }
+            });
+          }
+        }
+      });
+
+      // ---------- 10. Toast message ----------
+      let toastTimer;
+      function toast(message, actionLabel, action) {
+        toastEl.innerHTML = "";
+        const span = document.createElement("span");
+        span.textContent = message;
+        toastEl.appendChild(span);
+        if (actionLabel) {
+          const b = document.createElement("button");
+          b.textContent = actionLabel;
+          b.onclick = function () {
+            action();
+            hideToast();
+          };
+          toastEl.appendChild(b);
+        }
+        toastEl.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(hideToast, 4500);
+      }
+      function hideToast() {
+        toastEl.classList.remove("show");
+      }
+
+      // ---------- 11. Sample data, export, clear ----------
+      function loadSample() {
+        const daysAgo = (n) => {
+          const d = new Date();
+          d.setDate(d.getDate() - n);
+          return d;
+        };
+        const sample = [
+          [
+            "Garri",
+            "per congo",
+            [
+              [60, 1200],
+              [40, 1400],
+              [20, 1600],
+              [2, 1800],
+            ],
+          ],
+          [
+            "Rice",
+            "per kg",
+            [
+              [55, 1500],
+              [30, 1650],
+              [5, 1800],
+            ],
+          ],
+          [
+            "Tomatoes",
+            "per basket",
+            [
+              [50, 15000],
+              [25, 22000],
+              [3, 18000],
+            ],
+          ],
+          [
+            "Palm oil",
+            "per litre",
+            [
+              [45, 2500],
+              [15, 2700],
+              [1, 2900],
+            ],
+          ],
+        ];
+        sample.forEach(([item, unit, pts]) =>
+          pts.forEach(([ago, price]) => {
+            const d = daysAgo(ago);
+            entries.push({
+              id: uid(),
+              item: item,
+              unit: unit,
+              price: price,
+              place: "Sample",
+              date: toISO(d),
+              ts: d.getTime(),
+            });
+          }),
+        );
+        save();
+        render();
+        toast("Sample data added");
+      }
+
+      function exportCsv() {
+        if (!entries.length) {
+          toast("Nothing to export yet");
+          return;
+        }
+        const q = (s) => '"' + String(s).replace(/"/g, '""') + '"';
+        const rows = [
+          ["Item", "Unit", "Price", "Place", "Date"].join(","),
+        ].concat(
+          entries
+            .slice()
+            .sort((a, b) => a.date.localeCompare(b.date))
+            .map((e) =>
+              [q(e.item), q(e.unit), e.price, q(e.place), e.date].join(","),
+            ),
+        );
+        const blob = new Blob([rows.join("\n")], { type: "text/csv" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "price-notebook.csv";
+        a.click();
+        toast("CSV downloaded");
+      }
+
+      function clearAll() {
+        if (!entries.length) return;
+        if (confirm("Delete ALL saved prices? This cannot be undone.")) {
+          entries = [];
+          openHistory.clear();
+          save();
+          render();
+        }
+      }
+
+      // ---------- 12. Wire up buttons ----------
+      $("fab").addEventListener("click", () => openSheet());
+      backdrop.addEventListener("click", closeSheet);
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeSheet();
+      });
+      $("chips").addEventListener("click", function (e) {
+        const c = e.target.closest("[data-chip]");
+        if (c) {
+          fItem.value = c.dataset.chip;
+          fItem.dispatchEvent(new Event("input"));
+          fPrice.focus();
+        }
+      });
+      searchEl.addEventListener("input", render);
+      sortEl.addEventListener("change", render);
+      $("exportBtn").addEventListener("click", exportCsv);
+      $("clearBtn").addEventListener("click", clearAll);
+
+      // ---------- 13. Background photo slider ----------
+      const BG_IMAGES = [
+        "image1.jpg",
+        "image2.jpg",
+        "image3.jpg",
+        "image4.jpg",
+        "image5.jpg",
+      ];
+      const BG_HOLD_MS = 10000; // 10 seconds hold time
+      const BG_SWIPE_MS = 700; // time for the swipe animation
+
+      const bgSlider = $("bgSlider");
+      const bgLayers = BG_IMAGES.map(function (src) {
+        const layer = document.createElement("div");
+        layer.className = "bg-layer";
+        layer.style.backgroundImage = 'url("' + src + '")';
+        bgSlider.appendChild(layer);
+        return layer;
+      });
+
+      let bgIndex = 0;
+
+      function nextBg() {
+        const cur = bgLayers[bgIndex];
+        bgIndex = (bgIndex + 1) % bgLayers.length;
+        const nxt = bgLayers[bgIndex];
+
+        cur.classList.remove("is-current");
+        cur.classList.add("is-leaving");
+        nxt.classList.add("is-current");
+
+        setTimeout(function () {
+          cur.classList.remove("is-leaving");
+          cur.style.transition = "none";
+          void cur.offsetWidth;
+          cur.style.transition = "";
+        }, BG_SWIPE_MS + 80);
+      }
+
+      function startBg() {
+        if (bgLayers.length === 0) return;
+
+        const first = bgLayers[0];
+        first.style.transition = "none";
+        first.classList.add("is-current");
+        void first.offsetWidth;
+        first.style.transition = "";
+
+        if (bgLayers.length > 1) setInterval(nextBg, BG_HOLD_MS);
+      }
+
+      startBg();
+
+      // ---------- 14. Start the app ----------
+      load();
+      render();
+    </script>
+  </body>
+</html>
